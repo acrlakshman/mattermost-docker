@@ -1,3 +1,14 @@
+Built on top of [mattermost-docker](https://github.com/mattermost/mattermost-docker), this repository has changes that enable **deploying mattermost to a docker swarm with secrets**.
+
+| images | build |
+|:---:|:---:|
+|[mattermost-team](https://hub.docker.com/repository/docker/acrlakshman/mattermost-team) | ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/acrlakshman/mattermost-team?style=flat-square) |
+|[mattermost-prod-db](https://hub.docker.com/repository/docker/acrlakshman/mattermost-prod-db) | ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/acrlakshman/mattermost-prod-db?style=flat-square) |
+
+Article describing relevant steps: [Deploy mattermost to a docker swarm with secrets](https://medium.com/@anumolu/deploy-mattermost-to-a-docker-swarm-with-secrets-9c4a3a73c3f9)
+
+-------------------
+
 # Production Docker deployment for Mattermost
 
 This project enables deployment of a Mattermost server in a multi-node production configuration using Docker.
