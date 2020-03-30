@@ -1,0 +1,2 @@
+#!/bin/bash
+docker image build --build-arg edition=team --build-arg PUID=2000 --build-arg PGID=2000 -f $DOCKERFILE_PATH -t $IMAGE_NAME .

@@ -1,0 +1,143 @@
+# This file allows you to run mattermost within your docker swarm mode cluster
+# for more informations check: https://docs.docker.com/engine/swarm/
+#
+# Simply run:
+#
+# `docker stack deploy -c docker-stack.yml [STACK NAME]`
+#
+# In this case `mattermost` is going to be stack name, so the command will be:
+#
+# `docker stack deploy -c docker-stack.yml mattermost`
+#
+# From now on all the services that belong to this stack will be prefixed with `mattermost_`
+# this file defines 2 services, these are going to be mattermost_db and mattermost_app,
+# each of these names is the service's hostname as well, they can communicate
+# with each other easily by using the hostname instead of the ip or exposing ports to the host.
+#
+# As a side note, images tagged as latest are pulled by default,
+# that means there's no need to use `image:latest`
+#
+# use latest compose v3.3 file format for optimal compatibility with latest docker release and swarm features.
+# see https://docs.docker.com/compose/compose-file/compose-versioning/#version-3
+# and https://docs.docker.com/compose/compose-file/compose-versioning/#version-33
+# and https://docs.docker.com/compose/compose-file/compose-versioning/#upgrading
+
+version: '3.7'
+
+networks:
+  # network for App <-> DB transactions
+  mm-in:
+    driver: overlay
+    internal: true
+  # this network faces the outside world
+  mm-out:
+    driver: overlay
+    internal: false
+
+secrets:
+  mm_db_user:
+    external: true
+  mm_db_password:
+    external: true
+  mm_db_name:
+    external: true
+
+volumes:
+  mm_db_data:
+
+services:
+  db:
+    # use official mattermost prod-db image
+    image: acrlakshman/mattermost-prod-db:latest
+    networks:
+      - mm-in
+    volumes:
+      - type: volume
+        source: mm_db_data
+        target: /var/lib/postgresql/data
+      - /etc/localtime:/etc/localtime:ro
+    secrets:
+      - mm_db_user
+      - mm_db_password
+      - mm_db_name
+    environment:
+      - POSTGRES_USER=DOCKERSECRET:mm_db_user
+      - POSTGRES_PASSWORD=DOCKERSECRET:mm_db_password
+      - POSTGRES_DB=DOCKERSECRET:mm_db_name
+      # uncomment the following to enable backup
+      # - AWS_ACCESS_KEY_ID=XXXX
+      # - AWS_SECRET_ACCESS_KEY=XXXX
+      # - WALE_S3_PREFIX=s3://BUCKET_NAME/PATH
+      # - AWS_REGION=us-east-1
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+  app:
+    # custom image
+    image: acrlakshman/mattermost-team:5.21.0
+    ports:
+      - "7070:8000"
+    networks:
+      - mm-in
+      - mm-out
+    volumes:
+      - type: bind
+        source: ./volumes/app/mattermost/config
+        target: /mattermost/config
+      - type: bind
+        source: ./volumes/app/mattermost/data
+        target: /mattermost/data
+      - type: bind
+        source: ./volumes/app/mattermost/logs
+        target: /mattermost/logs
+      - type: bind
+        source: ./volumes/app/mattermost/plugins
+        target: /mattermost/plugins
+      - /etc/localtime:/etc/localtime:ro
+    secrets:
+      - mm_db_user
+      - mm_db_password
+      - mm_db_name
+    environment:
+      # use service's hostname
+      - DB_HOST=db
+      # talk to the port within the overlay network
+      # without (over)exposing ports
+      - DB_PORT_NUMBER=5432
+      - MM_USERNAME=DOCKERSECRET:mm_db_user
+      - MM_PASSWORD=DOCKERSECRET:mm_db_password
+      - MM_DBNAME=DOCKERSECRET:mm_db_name
+      # pass the edition to be used, default is enterprise
+      # setting this env var will make the app use the team edition
+      # - edition=team
+      # in case your config is not in default location
+      # - MM_CONFIG=/mattermost/config/config.json
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+      replicas: 1
+    depends_on:
+      - db
+  visualizer:
+    image: dockersamples/visualizer:stable
+    ports:
+      - "7071:8080"
+    stop_grace_period: 1m30s
+    networks:
+      - mm-out
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+      placement:
+        constraints: [node.role == manager]
