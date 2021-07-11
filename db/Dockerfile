@@ -1,6 +1,8 @@
-FROM postgres:9.4-alpine
+FROM postgres:10-alpine
 
 ENV DEFAULT_TIMEZONE UTC
+# Mandatory nowdays with PG 10
+ENV WAL_LEVEL logical
 
 # Install some packages to use WAL
 RUN echo "azure<5.0.0" > pip-constraints.txt
@@ -10,11 +12,10 @@ RUN apk add --no-cache \
       libc6-compat \
       libffi-dev \
       linux-headers \
-      python-dev \
-      py-pip \
+      python3-dev \
+      py3-pip \
       py-cryptography \
       pv \
-      libressl-dev \
     && pip install --upgrade pip \
     && pip --no-cache-dir install -c pip-constraints.txt 'wal-e<1.0.0' envdir \
     && rm -rf /var/cache/apk/* /tmp/* /var/tmp/*
@@ -22,7 +23,7 @@ RUN apk add --no-cache \
 # Add wale script
 COPY setup-wale.sh /docker-entrypoint-initdb.d/
 
-#Healthcheck to make sure container is ready
+# Healthcheck to make sure container is ready
 HEALTHCHECK CMD pg_isready -U $POSTGRES_USER -d $POSTGRES_DB || exit 1
 
 # Add and configure entrypoint and command
